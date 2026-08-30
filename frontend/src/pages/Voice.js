@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, Sparkles, User, Bot } from 'lucide-react';
+import { AlertCircle, Sparkles, User, Bot, Ticket } from 'lucide-react';
 import MicButton from '../components/MicButton.js';
 import { api } from '../lib/api.js';
 
@@ -53,24 +53,30 @@ export default function Voice() {
       setTurns((prev) => [
         ...prev,
         { role: 'user', text: data.transcript || '…', at: Date.now() },
-        { role: 'assistant', text: data.reply || '', at: Date.now(), ticket: data.ticket },
+        {
+          role: 'assistant',
+          text: data.reply || '',
+          at: Date.now(),
+          ticket: data.ticket,
+          showTicketButton: false,
+        },
       ]);
 
       if (data.audio_base64) {
-        try {
-          const src = `data:${data.audio_mime || 'audio/wav'};base64,${data.audio_base64}`;
-          if (audioRef.current) {
-            audioRef.current.src = src;
-            await audioRef.current.play();
-          }
-        } catch (_) {
-          /* auto-play may be blocked; ignore */
-        }
+        await playReplyAudio(data.audio_base64, data.audio_mime);
       }
 
       if (data.ticket?.appointment_id) {
-        // brief delay so user can hear confirmation
-        setTimeout(() => navigate(`/ticket/${data.ticket.appointment_id}`), 2000);
+        setTurns((prev) => {
+          const next = [...prev];
+          for (let i = next.length - 1; i >= 0; i--) {
+            if (next[i].role === 'assistant' && next[i].ticket?.appointment_id) {
+              next[i] = { ...next[i], showTicketButton: true };
+              break;
+            }
+          }
+          return next;
+        });
       }
     } catch (err) {
       console.error(err);
@@ -90,17 +96,40 @@ export default function Voice() {
       setTurns((prev) => [
         ...prev,
         { role: 'user', text, at: Date.now() },
-        { role: 'assistant', text: data.reply || '', at: Date.now(), ticket: data.ticket },
+        {
+          role: 'assistant',
+          text: data.reply || '',
+          at: Date.now(),
+          ticket: data.ticket,
+          showTicketButton: Boolean(data.ticket?.appointment_id),
+        },
       ]);
-      if (data.ticket?.appointment_id) {
-        setTimeout(() => navigate(`/ticket/${data.ticket.appointment_id}`), 800);
-      }
     } catch (err) {
       const msg = err?.response?.data?.detail || err?.message;
       setError(String(msg));
     } finally {
       setProcessing(false);
     }
+  }
+
+  function playReplyAudio(b64, mime) {
+    return new Promise((resolve) => {
+      const el = audioRef.current;
+      if (!el || !b64) {
+        resolve();
+        return;
+      }
+      const done = () => {
+        el.onended = null;
+        el.onerror = null;
+        resolve();
+      };
+      el.onended = done;
+      el.onerror = done;
+      el.src = `data:${mime || 'audio/wav'};base64,${b64}`;
+      const play = el.play();
+      if (play && play.catch) play.catch(done);
+    });
   }
 
   return (
@@ -169,15 +198,28 @@ export default function Voice() {
                       <Bot className="h-3 w-3" />
                     </span>
                   )}
-                  <div
-                    className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2 text-sm ${
-                      t.role === 'user'
-                        ? 'rounded-br-sm bg-primary text-primary-foreground'
-                        : 'rounded-bl-sm bg-background text-primary'
-                    }`}
-                    data-testid={`turn-${t.role}-${i}`}
-                  >
-                    {t.text || '…'}
+                  <div className="flex max-w-[80%] flex-col gap-2">
+                    <div
+                      className={`whitespace-pre-wrap rounded-2xl px-4 py-2 text-sm ${
+                        t.role === 'user'
+                          ? 'rounded-br-sm bg-primary text-primary-foreground'
+                          : 'rounded-bl-sm bg-background text-primary'
+                      }`}
+                      data-testid={`turn-${t.role}-${i}`}
+                    >
+                      {t.text || '…'}
+                    </div>
+                    {t.role === 'assistant' && t.showTicketButton && t.ticket?.appointment_id && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/ticket/${t.ticket.appointment_id}`)}
+                        className="inline-flex w-fit items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-medium uppercase tracking-widest text-accent-foreground transition-transform active:scale-95"
+                        data-testid={`show-ticket-${i}`}
+                      >
+                        <Ticket className="h-3.5 w-3.5" />
+                        Show ticket
+                      </button>
+                    )}
                   </div>
                   {t.role === 'user' && (
                     <span className="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground">

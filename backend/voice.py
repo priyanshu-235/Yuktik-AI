@@ -185,7 +185,8 @@ async def call_llm(session_id: str, system_msg: str, user_text: str, history: li
             status_code=503,
             detail="GEMINI_API_KEY is not configured. Add it to backend/.env",
         )
-    model = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
+    model = os.getenv("GEMINI_MODEL", "gemini-1.5-pro").strip()
+    logger.info("Gemini request model=%s", model)
 
     from google import genai
     from google.genai import types as genai_types
