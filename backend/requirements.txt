@@ -12,7 +12,3 @@ reportlab==4.2.5
 python-socketio==5.11.4
 google-genai==0.3.0
 google-auth==2.35.0
-livekit==1.1.13
-livekit-api
-livekit-agents
-numpy

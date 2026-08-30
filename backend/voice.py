@@ -128,7 +128,7 @@ async def sarvam_stt(audio_bytes: bytes, filename: str, content_type: str) -> tu
     return body.get("transcript", ""), body.get("language_code", "en-IN")
 
 
-async def sarvam_tts(text: str, language_code: str = "hi-IN", speaker: str = "anushka") -> str:
+async def sarvam_tts(text: str, language_code: str = "hi-IN", speaker: str = "priya") -> str:
     """Returns base64 wav audio."""
     key = _sarvam_key()
     # Cap text to ~500 chars for latency
@@ -141,7 +141,7 @@ async def sarvam_tts(text: str, language_code: str = "hi-IN", speaker: str = "an
                 "inputs": [text],
                 "target_language_code": language_code if language_code and "-" in language_code else "hi-IN",
                 "speaker": speaker,
-                "model": "bulbul:v2",
+                "model": "bulbul:v3",
                 "speech_sample_rate": 22050,
                 "enable_preprocessing": True,
             },
